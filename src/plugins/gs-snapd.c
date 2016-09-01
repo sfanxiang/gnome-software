@@ -345,57 +345,6 @@ parse_result (const gchar *response, const gchar *response_type, GError **error)
 	return g_object_ref (parser);
 }
 
-gchar *
-gs_snapd_login (const gchar *username, const gchar *password, const gchar *otp,
-		guint *status_code,
-		GCancellable *cancellable, GError **error)
-{
-	g_autofree gchar *escaped_username = NULL;
-	g_autofree gchar *escaped_password = NULL;
-	g_autofree gchar *escaped_otp = NULL;
-	g_autofree gchar *content = NULL;
-	g_autofree gchar *response = NULL;
-
-	escaped_username = g_strescape (username, NULL);
-	escaped_password = g_strescape (password, NULL);
-
-	if (otp != NULL) {
-		escaped_otp = g_strescape (otp, NULL);
-
-		content = g_strdup_printf ("{"
-					   "  \"username\" : \"%s\","
-					   "  \"password\" : \"%s\","
-					   "  \"otp\" : \"%s\""
-					   "}",
-					   escaped_username,
-					   escaped_password,
-					   escaped_otp);
-	} else {
-		content = g_strdup_printf ("{"
-					   "  \"username\" : \"%s\","
-					   "  \"password\" : \"%s\""
-					   "}",
-					   escaped_username,
-					   escaped_password);
-	}
-
-	if (!send_request ("POST",
-			   "/v2/login",
-			   content,
-			   FALSE, NULL, NULL,
-			   FALSE, NULL, NULL,
-			   status_code,
-			   NULL,
-			   NULL,
-			   &response,
-			   NULL,
-			   NULL,
-			   error))
-		return NULL;
-
-	return g_steal_pointer (&response);
-}
-
 JsonObject *
 gs_snapd_list_one (const gchar *name,
 		   GCancellable *cancellable, GError **error)
