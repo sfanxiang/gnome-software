@@ -25,9 +25,9 @@
 #include <glib/gi18n.h>
 #include <json-glib/json-glib.h>
 #include <libsoup/soup.h>
-#include <snapd-glib/snapd-glib.h>
 
 #ifdef USE_SNAPD
+#include <snapd-glib/snapd-glib.h>
 #include "gs-snapd.h"
 #endif
 
