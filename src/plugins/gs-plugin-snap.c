@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <gs-utils.h>
 #include <gs-plugin.h>
 #include <glib/gi18n.h>
 #include <json-glib/json-glib.h>
@@ -172,6 +173,40 @@ refine_app (GsPlugin *plugin, GsApp *app, JsonObject *package, gboolean from_sea
 		else
 			gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
 	}
+}
+
+gboolean
+gs_plugin_url_to_app (GsPlugin *plugin,
+		      GList **list,
+		      const gchar *url,
+		      GCancellable *cancellable,
+		      GError **error)
+{
+	g_autofree gchar *scheme = NULL;
+	g_autoptr(JsonArray) snaps = NULL;
+	JsonObject *snap;
+	g_autofree gchar *path = NULL;
+	g_autoptr(GsApp) app = NULL;
+
+	/* not us */
+	scheme = gs_utils_get_url_scheme (url);
+	if (g_strcmp0 (scheme, "snap") != 0)
+		return TRUE;
+
+	/* create app */
+	path = gs_utils_get_url_path (url);
+	snaps = gs_snapd_find_name (path, cancellable, NULL);
+	if (snaps == NULL || json_array_get_length (snaps) < 1)
+		return TRUE;
+
+	snap = json_array_get_object_element (snaps, 0);
+	app = gs_app_new (json_object_get_string_member (snap, "name"));
+	gs_app_set_management_plugin (app, "snap");
+	gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
+	refine_app (plugin, app, snap, TRUE, cancellable);
+	gs_plugin_add_app (list, app);
+
+	return TRUE;
 }
 
 void

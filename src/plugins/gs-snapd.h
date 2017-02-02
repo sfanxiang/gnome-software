@@ -40,6 +40,10 @@ JsonArray *gs_snapd_find		(gchar		**values,
 					 GCancellable	*cancellable,
 					 GError		**error);
 
+JsonArray *gs_snapd_find_name		(const gchar	*name,
+					 GCancellable	*cancellable,
+					 GError		**error);
+
 JsonObject *gs_snapd_get_interfaces	(GCancellable	*cancellable,
 					 GError		**error);
 

@@ -169,6 +169,11 @@ typedef gboolean	 (*GsPluginFileToAppFunc)	(GsPlugin	*plugin,
 							 GFile		*file,
 							 GCancellable	*cancellable,
 							 GError		**error);
+typedef gboolean	 (*GsPluginUrlToAppFunc)	(GsPlugin	*plugin,
+							 GList		**list,
+							 const gchar	*url,
+							 GCancellable	*cancellable,
+							 GError		**error);
 typedef gboolean	 (*GsPluginUpdateFunc)		(GsPlugin	*plugin,
 							 GList		*apps,
 							 GCancellable	*cancellable,
@@ -336,6 +341,11 @@ gboolean	 gs_plugin_refresh			(GsPlugin	*plugin,
 gboolean	 gs_plugin_file_to_app			(GsPlugin	*plugin,
 							 GList		**list,
 							 GFile		*file,
+							 GCancellable	*cancellable,
+							 GError		**error);
+gboolean	 gs_plugin_url_to_app			(GsPlugin	*plugin,
+							 GList		**list,
+							 const gchar	*url,
 							 GCancellable	*cancellable,
 							 GError		**error);
 gboolean	 gs_plugin_update			(GsPlugin	*plugin,
