@@ -1230,7 +1230,8 @@ gs_shell_updates_changed_cb (GsPluginLoader *plugin_loader,
 	gs_shell_updates_invalidate_downloaded_upgrade (self);
 
 	/* refresh updates list */
-	gs_shell_updates_reload (GS_PAGE (self));
+	if (!gs_page_is_active (GS_PAGE (self)))
+		gs_shell_updates_reload (GS_PAGE (self));
 }
 
 static void
