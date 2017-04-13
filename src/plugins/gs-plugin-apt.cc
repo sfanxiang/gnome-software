@@ -786,6 +786,7 @@ aptd_transaction (GsPlugin     *plugin,
 		  GsApp        *app,
 		  GList        *apps,
 		  GVariant     *parameters,
+		  GCancellable *cancellable,
 		  GError      **error)
 {
 	g_autoptr(GDBusConnection) conn = NULL;
@@ -795,7 +796,7 @@ aptd_transaction (GsPlugin     *plugin,
 	guint property_signal, finished_signal;
 	TransactionData data;
 
-	conn = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, error);
+	conn = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 	if (conn == NULL)
 		return FALSE;
 
@@ -811,7 +812,7 @@ aptd_transaction (GsPlugin     *plugin,
 					      G_VARIANT_TYPE ("(s)"),
 					      G_DBUS_CALL_FLAGS_NONE,
 					      -1,
-					      NULL,
+					      cancellable,
 					      error);
 	if (result == NULL)
 		return FALSE;
@@ -857,7 +858,7 @@ aptd_transaction (GsPlugin     *plugin,
 					      G_VARIANT_TYPE ("()"),
 					      G_DBUS_CALL_FLAGS_NONE,
 					      -1,
-					      NULL,
+					      cancellable,
 					      error);
 	if (result != NULL)
 		g_main_loop_run (loop);
@@ -908,14 +909,14 @@ gs_plugin_app_install (GsPlugin *plugin,
 	case AS_APP_STATE_AVAILABLE:
 	case AS_APP_STATE_UPDATABLE:
 		gs_app_set_state (app, AS_APP_STATE_INSTALLING);
-		success = aptd_transaction (plugin, "InstallPackages", app, NULL, NULL, error);
+		success = aptd_transaction (plugin, "InstallPackages", app, NULL, NULL, cancellable, error);
 		break;
 	case AS_APP_STATE_AVAILABLE_LOCAL:
 		filename = g_file_get_path (gs_app_get_local_file (app));
 		gs_app_set_state (app, AS_APP_STATE_INSTALLING);
 		success = aptd_transaction (plugin, "InstallFile", app, NULL,
 					    g_variant_new_parsed ("(%s, true)", filename),
-					    error);
+					    cancellable, error);
 		break;
 	default:
 		g_set_error (error,
@@ -948,7 +949,7 @@ gs_plugin_app_remove (GsPlugin *plugin,
 		return TRUE;
 
 	gs_app_set_state (app, AS_APP_STATE_REMOVING);
-	if (aptd_transaction (plugin, "RemovePackages", app, NULL, NULL, error))
+	if (aptd_transaction (plugin, "RemovePackages", app, NULL, NULL, cancellable, error))
 		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
 	else {
 		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
@@ -968,7 +969,7 @@ gs_plugin_refresh (GsPlugin *plugin,
 	if ((flags & GS_PLUGIN_REFRESH_FLAGS_UPDATES) == 0)
 		return TRUE;
 
-	if (!aptd_transaction (plugin, "UpdateCache", NULL, NULL, NULL, error))
+	if (!aptd_transaction (plugin, "UpdateCache", NULL, NULL, NULL, cancellable, error))
 		return FALSE;
 
 	unload_apt_db (plugin);
@@ -1050,7 +1051,7 @@ gs_plugin_update (GsPlugin      *plugin,
 		if (g_strcmp0 (gs_app_get_id (app_i), "os-update.virtual") == 0) {
 			set_list_state (apps, AS_APP_STATE_INSTALLING);
 
-			if (aptd_transaction (plugin, "UpgradeSystem", NULL, apps, g_variant_new_parsed ("(false,)"), error)) {
+			if (aptd_transaction (plugin, "UpgradeSystem", NULL, apps, g_variant_new_parsed ("(false,)"), cancellable, error)) {
 				set_list_state (apps, AS_APP_STATE_INSTALLED);
 
 				unload_apt_db (plugin);
@@ -1096,7 +1097,7 @@ gs_plugin_update_app (GsPlugin *plugin,
 
 		g_variant_builder_close (&builder);
 
-		if (aptd_transaction (plugin, "UpgradePackages", app, NULL, g_variant_builder_end (&builder), error)) {
+		if (aptd_transaction (plugin, "UpgradePackages", app, NULL, g_variant_builder_end (&builder), cancellable, error)) {
 			gs_app_set_state (app, AS_APP_STATE_INSTALLED);
 
 			for (i = 0; i < apps->len; i++)
@@ -1116,7 +1117,7 @@ gs_plugin_update_app (GsPlugin *plugin,
 	} else if (app_is_ours (app)) {
 		gs_app_set_state (app, AS_APP_STATE_INSTALLING);
 
-		if (aptd_transaction (plugin, "UpgradePackages", app, NULL, NULL, error)) {
+		if (aptd_transaction (plugin, "UpgradePackages", app, NULL, NULL, cancellable, error)) {
 			gs_app_set_state (app, AS_APP_STATE_INSTALLED);
 
 			unload_apt_db (plugin);
