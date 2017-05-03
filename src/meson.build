@@ -127,6 +127,37 @@ executable(
   install_dir : get_option('libexecdir')
 )
 
+resources_editor_src = gnome.compile_resources(
+  'gs-editor-resources',
+  'gnome-software-editor.gresource.xml',
+  source_dir : '.',
+  c_name : 'gs'
+)
+
+executable(
+  'gnome-software-editor',
+  resources_editor_src,
+  sources : [
+    'gs-app-tile.c',
+    'gs-common.c',
+    'gs-editor.c',
+    'gs-summary-tile.c',
+    'gs-star-widget.c',
+    'gs-feature-tile.c',
+  ],
+  include_directories : [
+    include_directories('..'),
+    include_directories('../lib'),
+  ],
+  dependencies : gnome_software_dependencies,
+  link_with : [
+    libgnomesoftware
+  ],
+  c_args : cargs,
+  install : true,
+  install_dir : 'libexec'
+)
+
 # no quoting
 cdata = configuration_data()
 cdata.set('bindir', join_paths(get_option('prefix'),
@@ -154,6 +185,15 @@ configure_file(
 i18n.merge_file(
   input: 'org.gnome.Software.desktop.in',
   output: 'org.gnome.Software.desktop',
+  type: 'desktop',
+  po_dir: join_paths(meson.source_root(), 'po'),
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'applications')
+)
+
+i18n.merge_file(
+  input: 'org.gnome.Software.Editor.desktop.in',
+  output: 'org.gnome.Software.Editor.desktop',
   type: 'desktop',
   po_dir: join_paths(meson.source_root(), 'po'),
   install: true,
