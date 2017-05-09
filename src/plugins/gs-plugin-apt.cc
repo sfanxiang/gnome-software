@@ -888,6 +888,10 @@ debconf_accept_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 	g_autoptr(GError) error = NULL;
 
 	data->debconf_connection = g_socket_accept (socket, data->cancellable, &error);
+	if (data->debconf_connection == NULL) {
+		g_warning ("Failed to accept debconf connection: %s", error->message);
+		return G_SOURCE_CONTINUE;
+	}
 	data->debconf_read_source = g_socket_create_source (data->debconf_connection, G_IO_IN, data->cancellable);
 	g_source_set_callback (data->debconf_read_source, (GSourceFunc) debconf_read_cb, data, NULL);
 	g_source_attach (data->debconf_read_source, data->context);
