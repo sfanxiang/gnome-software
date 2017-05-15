@@ -50,7 +50,9 @@ app_state_changed_idle (gpointer user_data)
 {
 	GsFeatureTile *tile = GS_FEATURE_TILE (user_data);
 	AtkObject *accessible;
+	const gchar *css;
 	g_autofree gchar *name = NULL;
+	g_autoptr(GHashTable) ids = NULL;
 
 	/* nothing set yet */
 	if (tile->app == NULL)
@@ -61,8 +63,16 @@ app_state_changed_idle (gpointer user_data)
 	gtk_label_set_label (GTK_LABEL (tile->subtitle), gs_app_get_summary (tile->app));
 
 	/* perhaps set custom css */
-	gs_utils_widget_set_css_app (tile->app, GTK_WIDGET (tile),
-				     "GnomeSoftware::FeatureTile-css");
+	css = gs_app_get_metadata_item (tile->app, "GnomeSoftware::FeatureTile-css");
+	ids = gs_utils_parse_css_ids (css, NULL);
+	css = g_hash_table_lookup (ids, "tile");
+	if (css == NULL)
+		css = g_hash_table_lookup (ids, "");
+	gs_utils_widget_set_css_app (tile->app, GTK_WIDGET (tile), css);
+	gs_utils_widget_set_css_simple (tile->title,
+					g_hash_table_lookup (ids, "name"));
+	gs_utils_widget_set_css_simple (tile->subtitle,
+					g_hash_table_lookup (ids, "summary"));
 
 	accessible = gtk_widget_get_accessible (GTK_WIDGET (tile));
 

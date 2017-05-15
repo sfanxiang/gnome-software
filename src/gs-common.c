@@ -386,12 +386,9 @@ gs_utils_widget_set_css_simple (GtkWidget *widget, const gchar *css)
 }
 
 void
-gs_utils_widget_set_css_app (GsApp *app,
-			     GtkWidget *widget,
-			     const gchar *metadata_css)
+gs_utils_widget_set_css_app (GsApp *app, GtkWidget *widget, const gchar *css)
 {
 	GPtrArray *key_colors;
-	const gchar *css;
 	guint i;
 	g_autofree gchar *class_name = NULL;
 	g_autoptr(GString) css_str = NULL;
@@ -400,7 +397,6 @@ gs_utils_widget_set_css_app (GsApp *app,
 	g_return_if_fail (GS_IS_APP (app));
 
 	/* invalid */
-	css = gs_app_get_metadata_item (app, metadata_css);
 	if (css == NULL) {
 		gs_utils_widget_set_css_simple (widget, css);
 		return;
@@ -431,6 +427,111 @@ gs_utils_widget_set_css_app (GsApp *app,
 	g_string_append (str, "  opacity: 0.9;\n");
 	g_string_append (str, "}\n");
 	gs_utils_widget_set_css_internal (widget, class_name, str->str);
+}
+
+static void
+_cleanup_string (GString *str)
+{
+	/* remove leading newlines */
+	while (g_str_has_prefix (str->str, "\n") || g_str_has_prefix (str->str, " "))
+		g_string_erase (str, 0, 1);
+
+	/* remove trailing newlines */
+	while (g_str_has_suffix (str->str, "\n") || g_str_has_suffix (str->str, " "))
+		g_string_truncate (str, str->len - 1);
+}
+
+/**
+ * gs_utils_parse_css_ids:
+ * @css: CSS markup
+ * @error: A #GError, or %NULL
+ *
+ * Splits up some CSS into the different IDs. If the CSS is ID-less then
+ * it is handled fine and added to an empty key.
+ *
+ * Returns: a #GHashTable or %NULL for error
+ */
+GHashTable *
+gs_utils_parse_css_ids (const gchar *css, GError **error)
+{
+	g_autoptr(GHashTable) results = NULL;
+	g_auto(GStrv) parts = NULL;
+
+	/* no data */
+	results = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+	if (css == NULL || css[0] == '\0')
+		return g_steal_pointer (&results);
+
+	/* old style, no IDs */
+	if (!g_str_has_prefix (css, "#")) {
+		g_hash_table_insert (results, g_strdup (""), g_strdup (css));
+		return g_steal_pointer (&results);
+	}
+
+	/* split up CSS into ID chunks, e.g.
+	 *
+	 *    #tile {border-radius: 0;}
+	 *    #name {color: white;}
+	 */
+	parts = g_strsplit (css + 1, "\n#", -1);
+	for (guint i = 0; parts[i] != NULL; i++) {
+		g_autoptr(GString) current_css = NULL;
+		g_autoptr(GString) current_key = NULL;
+		for (guint j = 1; parts[i][j] != '\0'; j++) {
+			const gchar ch = parts[i][j];
+			if (ch == '{') {
+				if (current_key != NULL || current_css != NULL) {
+					g_set_error_literal (error,
+							     G_IO_ERROR,
+							     G_IO_ERROR_INVALID_DATA,
+							     "invalid '{'");
+					return NULL;
+				}
+				current_key = g_string_new_len (parts[i], j);
+				current_css = g_string_new (NULL);
+				_cleanup_string (current_key);
+
+				/* already added */
+				if (g_hash_table_lookup (results, current_key->str) != NULL) {
+					g_set_error (error,
+						     G_IO_ERROR,
+						     G_IO_ERROR_INVALID_DATA,
+						     "duplicate ID '%s'",
+						     current_key->str);
+					return NULL;
+				}
+				continue;
+			}
+			if (ch == '}') {
+				if (current_key == NULL || current_css == NULL) {
+					g_set_error_literal (error,
+							     G_IO_ERROR,
+							     G_IO_ERROR_INVALID_DATA,
+							     "invalid '}'");
+					return NULL;
+				}
+				_cleanup_string (current_css);
+				g_hash_table_insert (results,
+						     g_string_free (current_key, FALSE),
+						     g_string_free (current_css, FALSE));
+				current_key = NULL;
+				current_css = NULL;
+				continue;
+			}
+			if (current_css != NULL)
+				g_string_append_c (current_css, ch);
+		}
+		if (current_key != NULL || current_css != NULL) {
+			g_set_error_literal (error,
+					     G_IO_ERROR,
+					     G_IO_ERROR_INVALID_DATA,
+					     "missing '}'");
+			return NULL;
+		}
+	}
+
+	/* success */
+	return g_steal_pointer (&results);
 }
 
 static void

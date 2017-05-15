@@ -60,6 +60,8 @@ gchar		*gs_utils_build_unique_id_kind	(AsAppKind	 kind,
 						 const gchar	*id);
 gboolean	 gs_utils_list_has_app_fuzzy	(GsAppList	*list,
 						 GsApp		*app);
+GHashTable	*gs_utils_parse_css_ids		(const gchar	*css,
+						 GError		**error);
 
 G_END_DECLS
 

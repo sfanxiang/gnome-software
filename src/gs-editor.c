@@ -89,7 +89,7 @@ gs_design_css_parsing_error_cb (GtkCssProvider *provider,
 }
 
 static gboolean
-gs_design_validate_css (GsEditor *self, const gchar *css, GError **error)
+gs_design_validate_css_part (GsEditor *self, const gchar *css, GError **error)
 {
 	GsDesignErrorHelper helper;
 	g_autofree gchar *css_new = NULL;
@@ -120,6 +120,41 @@ gs_design_validate_css (GsEditor *self, const gchar *css, GError **error)
 						   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 	gtk_css_provider_load_from_data (provider, str->str, -1, NULL);
 	return *(helper.error) == NULL;
+}
+
+static gboolean
+gs_design_validate_css (GsEditor *self, const gchar *css, GError **error)
+{
+	const gchar *tmp;
+	g_autoptr(GHashTable) ids = NULL;
+	g_autoptr(GList) keys = NULL;
+
+	/* check each CSS ID */
+	ids = gs_utils_parse_css_ids (css, error);
+	if (ids == NULL)
+		return FALSE;
+	keys = g_hash_table_get_keys (ids);
+	for (GList *l = keys; l != NULL; l = l->next) {
+		const gchar *id = l->data;
+		g_warning ("%s", id);
+		if (g_strcmp0 (id, "") != 0 &&
+		    g_strcmp0 (id, "tile") != 0 &&
+		    g_strcmp0 (id, "name") != 0 &&
+		    g_strcmp0 (id, "summary") != 0) {
+			g_set_error (error,
+				     G_IO_ERROR,
+				     G_IO_ERROR_INVALID_DATA,
+				     "Invalid CSS ID '%s'",
+				     id);
+			return FALSE;
+		}
+		tmp = g_hash_table_lookup (ids, id);
+		if (!gs_design_validate_css_part (self, tmp, error))
+			return FALSE;
+	}
+
+	/* success */
+	return TRUE;
 }
 
 static void

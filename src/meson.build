@@ -263,3 +263,33 @@ if get_option('enable-packagekit')
     configuration : conf
   )
 endif
+
+if get_option('enable-tests')
+  cargs += ['-DTESTDATADIR="' + join_paths(meson.current_source_dir(), '..', 'data') + '"']
+  e = executable(
+    'gs-self-test-src',
+    sources : [
+      'gs-common.c',
+      'gs-self-test.c',
+    ],
+    include_directories : [
+      include_directories('..'),
+      include_directories('../lib'),
+    ],
+    dependencies : [
+      appstream_glib,
+      gio_unix,
+      gmodule,
+      gtk,
+      json_glib,
+      libm,
+      libsecret,
+      libsoup,
+    ],
+    link_with : [
+      libgnomesoftware
+    ],
+    c_args : cargs
+  )
+  test('gs-self-test-src', e)
+endif
