@@ -725,6 +725,11 @@ debconf_data_new (GCancellable *cancellable)
 static void
 debconf_data_free (DebconfData *data)
 {
+	if (data->debconf_read_source != NULL)
+		g_source_destroy (data->debconf_read_source);
+	if (data->debconf_client_read_source != NULL)
+		g_source_destroy (data->debconf_client_read_source);
+
 	g_clear_object (&data->cancellable);
 	if (data->debconf_connection != NULL)
 		g_socket_close (data->debconf_connection, NULL);
@@ -925,7 +930,7 @@ debconf_accept_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 		return G_SOURCE_CONTINUE;
 	}
 	debconf_data->debconf_read_source = g_socket_create_source (debconf_data->debconf_connection, G_IO_IN, data->cancellable);
-	g_source_set_callback (debconf_data->debconf_read_source, (GSourceFunc) debconf_read_cb, data, NULL);
+	g_source_set_callback (debconf_data->debconf_read_source, (GSourceFunc) debconf_read_cb, debconf_data, NULL);
 	g_source_attach (debconf_data->debconf_read_source, data->context);
 
 	argv = g_ptr_array_new ();
@@ -950,7 +955,7 @@ debconf_accept_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 		return G_SOURCE_CONTINUE;
 	}
 	debconf_data->debconf_client_read_source = g_unix_fd_source_new (debconf_data->stdout_pipe, G_IO_IN);
-	g_source_set_callback (debconf_data->debconf_client_read_source, (GSourceFunc) debconf_client_read_cb, data, NULL);
+	g_source_set_callback (debconf_data->debconf_client_read_source, (GSourceFunc) debconf_client_read_cb, debconf_data, NULL);
 	g_source_attach (debconf_data->debconf_client_read_source, data->context);
 
 	return G_SOURCE_CONTINUE;
