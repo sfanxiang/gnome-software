@@ -705,13 +705,7 @@ gs_plugin_add_installed (GsPlugin *plugin,
 }
 
 typedef struct {
-	GsPlugin *plugin;
 	GCancellable *cancellable;
-	GsApp *app;
-	GList *apps;
-	gchar *result;
-	GMainContext *context;
-	GMainLoop *loop;
 	GSocket *debconf_connection;
 	GSource *debconf_read_source;
 	GSource *debconf_client_read_source;
@@ -719,18 +713,15 @@ typedef struct {
 	gint stdin_pipe;
 	gint stdout_pipe;
 	gint stderr_pipe;
-} TransactionData;
+} DebconfData;
 
-static TransactionData *
-transaction_data_new (GsPlugin *plugin, GCancellable *cancellable)
+static DebconfData *
+debconf_data_new (GCancellable *cancellable)
 {
-	TransactionData *data;
+	DebconfData *data;
 
-	data = g_slice_new0 (TransactionData);
-	data->plugin = plugin;
+	data = g_slice_new0 (DebconfData);
 	data->cancellable = (GCancellable *) g_object_ref (cancellable);
-	data->context = g_main_context_new ();
-	data->loop = g_main_loop_new (data->context, FALSE);
 	data->stdin_pipe = -1;
 	data->stdout_pipe = -1;
 	data->stderr_pipe = -1;
@@ -739,12 +730,10 @@ transaction_data_new (GsPlugin *plugin, GCancellable *cancellable)
 }
 
 static void
-transaction_data_free (TransactionData *data)
+debconf_data_free (DebconfData *data)
 {
-	g_clear_object (&data->cancellable);
-	g_free (data->result);
-	g_clear_pointer (&data->context, g_main_context_unref);
-	g_clear_pointer (&data->loop, g_main_loop_unref);
+	if (data->debconf_connection != NULL)
+		g_socket_close (data->debconf_connection, NULL);
 	g_clear_object (&data->debconf_connection);
 	g_clear_pointer (&data->debconf_read_source, g_source_unref);
 	g_clear_pointer (&data->debconf_client_read_source, g_source_unref);
@@ -756,6 +745,48 @@ transaction_data_free (TransactionData *data)
 		close (data->stderr_pipe);
 	if (data->debconf_pid > 0)
 		kill (data->debconf_pid, SIGTERM);
+	g_slice_free (DebconfData, data);
+}
+
+typedef struct {
+	GsPlugin *plugin;
+	GCancellable *cancellable;
+	GsApp *app;
+	GsAppList *apps;
+	gchar *result;
+	GMainContext *context;
+	GMainLoop *loop;
+	GSocket *debconf_socket;
+	GList *debconf_connections;
+} TransactionData;
+
+static TransactionData *
+transaction_data_new (GsPlugin *plugin, GCancellable *cancellable)
+{
+	TransactionData *data;
+
+	data = g_slice_new0 (TransactionData);
+	data->plugin = (GsPlugin *) g_object_ref (plugin);
+	data->cancellable = (GCancellable *) g_object_ref (cancellable);
+	data->context = g_main_context_new ();
+	data->loop = g_main_loop_new (data->context, FALSE);
+
+	return data;
+}
+
+static void
+transaction_data_free (TransactionData *data)
+{
+	g_clear_object (&data->cancellable);
+	g_clear_object (&data->plugin);
+	g_clear_object (&data->cancellable);
+	g_free (data->result);
+	g_clear_pointer (&data->context, g_main_context_unref);
+	g_clear_pointer (&data->loop, g_main_loop_unref);
+	if (data->debconf_socket != NULL)
+		g_socket_close (data->debconf_socket, NULL);
+	g_clear_object (&data->debconf_socket);
+	g_list_free_full (data->debconf_connections, (GDestroyNotify) debconf_data_free);
 	g_slice_free (TransactionData, data);
 }
 
@@ -834,14 +865,17 @@ notify_unity_launcher (GsApp *app, const gchar *transaction_path)
 static gboolean
 debconf_read_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 {
-	TransactionData *data = (TransactionData *) user_data;
+	DebconfData *data = (DebconfData *) user_data;
 	gchar buffer[1024];
 	gssize n_read;
 	g_autoptr(GError) error = NULL;
 
 	n_read = g_socket_receive (socket, buffer, 1024, data->cancellable, &error);
-	if (n_read == 0)
+	if (n_read == 0) {
+		close (data->stdin_pipe);
+		data->stdin_pipe = -1;
 		return G_SOURCE_REMOVE;
+	}
 	if (n_read < 0) {
 		g_warning ("Error reading from debconf socket: %s\n", g_strerror (errno));
 		return G_SOURCE_CONTINUE;
@@ -858,7 +892,7 @@ debconf_read_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 static gboolean
 debconf_client_read_cb (gint fd, GIOCondition condition, gpointer user_data)
 {
-	TransactionData *data = (TransactionData *) user_data;
+	DebconfData *data = (DebconfData *) user_data;
 	gchar buffer[1024];
 	gsize n_read;
 	g_autoptr(GError) error = NULL;
@@ -868,8 +902,10 @@ debconf_client_read_cb (gint fd, GIOCondition condition, gpointer user_data)
 		g_warning ("Error reading from debconf client: %s\n", g_strerror (errno));
 		return G_SOURCE_CONTINUE;
 	}
-	if (n_read == 0)
+	if (n_read == 0) {
+		g_socket_close (data->debconf_connection, NULL);
 		return G_SOURCE_REMOVE;
+	}
 
 	if (!g_socket_send (data->debconf_connection, buffer, n_read, data->cancellable, &error)) {
 		g_warning ("Error writing to debconf socket: %s\n", error->message);
@@ -883,18 +919,21 @@ static gboolean
 debconf_accept_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 {
 	TransactionData *data = (TransactionData *) user_data;
+	DebconfData *debconf_data;
 	g_autoptr(GPtrArray) argv = NULL;
 	g_auto(GStrv) envp = NULL;
 	g_autoptr(GError) error = NULL;
 
-	data->debconf_connection = g_socket_accept (socket, data->cancellable, &error);
-	if (data->debconf_connection == NULL) {
+	debconf_data = debconf_data_new (data->cancellable);
+	data->debconf_connections = g_list_append (data->debconf_connections, debconf_data);
+	debconf_data->debconf_connection = g_socket_accept (socket, data->cancellable, &error);
+	if (debconf_data->debconf_connection == NULL) {
 		g_warning ("Failed to accept debconf connection: %s", error->message);
 		return G_SOURCE_CONTINUE;
 	}
-	data->debconf_read_source = g_socket_create_source (data->debconf_connection, G_IO_IN, data->cancellable);
-	g_source_set_callback (data->debconf_read_source, (GSourceFunc) debconf_read_cb, data, NULL);
-	g_source_attach (data->debconf_read_source, data->context);
+	debconf_data->debconf_read_source = g_socket_create_source (debconf_data->debconf_connection, G_IO_IN, data->cancellable);
+	g_source_set_callback (debconf_data->debconf_read_source, (GSourceFunc) debconf_read_cb, data, NULL);
+	g_source_attach (debconf_data->debconf_read_source, data->context);
 
 	argv = g_ptr_array_new ();
 	g_ptr_array_add (argv, (gpointer) "debconf-communicate");
@@ -908,20 +947,20 @@ debconf_accept_cb (GSocket *socket, GIOCondition condition, gpointer user_data)
 	                               envp,
 	                               G_SPAWN_SEARCH_PATH,
 	                               NULL, NULL,
-	                               &data->debconf_pid,
-	                               &data->stdin_pipe,
-	                               &data->stdout_pipe,
-	                               &data->stderr_pipe,
+	                               &debconf_data->debconf_pid,
+	                               &debconf_data->stdin_pipe,
+	                               &debconf_data->stdout_pipe,
+	                               &debconf_data->stderr_pipe,
 	                               &error)) {
 		g_warning ("Failed to launch debconf-communicate: %s", error->message);
-		g_socket_close (data->debconf_connection, NULL);
+		g_socket_close (debconf_data->debconf_connection, NULL);
 		return G_SOURCE_CONTINUE;
 	}
-	data->debconf_client_read_source = g_unix_fd_source_new (data->stdout_pipe, G_IO_IN);
-	g_source_set_callback (data->debconf_client_read_source, (GSourceFunc) debconf_client_read_cb, data, NULL);
-	g_source_attach (data->debconf_client_read_source, data->context);
+	debconf_data->debconf_client_read_source = g_unix_fd_source_new (debconf_data->stdout_pipe, G_IO_IN);
+	g_source_set_callback (debconf_data->debconf_client_read_source, (GSourceFunc) debconf_client_read_cb, data, NULL);
+	g_source_attach (debconf_data->debconf_client_read_source, data->context);
 
-	return G_SOURCE_REMOVE;
+	return G_SOURCE_CONTINUE;
 }
 
 static gboolean
@@ -939,7 +978,6 @@ aptd_transaction (GsPlugin     *plugin,
 	g_autoptr(GSocketAddress) address = NULL;
 	g_autoptr(GSource) accept_source = NULL;
 	guint property_signal, finished_signal;
-	g_autoptr(GSocket) debconf_socket = NULL;
 	g_autoptr(TransactionData) data = NULL;
 
 	conn = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
@@ -971,14 +1009,14 @@ aptd_transaction (GsPlugin     *plugin,
 
 	temp_dir = g_dir_make_tmp ("gnome-software-XXXXXX", NULL);
 	debconf_socket_path = g_build_filename (temp_dir, "debconf.socket", NULL);
-	debconf_socket = g_socket_new (G_SOCKET_FAMILY_UNIX, G_SOCKET_TYPE_STREAM, G_SOCKET_PROTOCOL_DEFAULT, error);
+	data->debconf_socket = g_socket_new (G_SOCKET_FAMILY_UNIX, G_SOCKET_TYPE_STREAM, G_SOCKET_PROTOCOL_DEFAULT, error);
 	address = g_unix_socket_address_new (debconf_socket_path);
-	if (debconf_socket == NULL || !g_socket_bind (debconf_socket, address, FALSE, error))
+	if (data->debconf_socket == NULL || !g_socket_bind (data->debconf_socket, address, FALSE, error))
 		return FALSE;
-	accept_source = g_socket_create_source (debconf_socket, G_IO_IN, cancellable);
+	accept_source = g_socket_create_source (data->debconf_socket, G_IO_IN, cancellable);
 	g_source_set_callback (accept_source, (GSourceFunc) debconf_accept_cb, data, NULL);
 	g_source_attach (accept_source, data->context);
-	if (!g_socket_listen (debconf_socket, error))
+	if (!g_socket_listen (data->debconf_socket, error))
 		return FALSE;
 	result = g_dbus_connection_call_sync (conn,
                                               "org.debian.apt",
