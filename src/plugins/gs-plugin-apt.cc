@@ -725,6 +725,7 @@ debconf_data_new (GCancellable *cancellable)
 static void
 debconf_data_free (DebconfData *data)
 {
+	g_clear_object (&data->cancellable);
 	if (data->debconf_connection != NULL)
 		g_socket_close (data->debconf_connection, NULL);
 	g_clear_object (&data->debconf_connection);
@@ -770,7 +771,6 @@ transaction_data_new (GsPlugin *plugin, GCancellable *cancellable)
 static void
 transaction_data_free (TransactionData *data)
 {
-	g_clear_object (&data->cancellable);
 	g_clear_object (&data->plugin);
 	g_clear_object (&data->cancellable);
 	g_free (data->result);
