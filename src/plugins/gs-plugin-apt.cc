@@ -184,7 +184,6 @@ read_list_file_cb (GObject *object,
 	g_autoptr(GFileInfo) info = NULL;
 	g_auto(GStrv) file_lines = NULL;
 	g_auto(GStrv) file_components = NULL;
-	gchar *line;
 
 	file = G_FILE (object);
 	data = (ReadListData *) user_data;
@@ -529,12 +528,6 @@ get_changelog (GsPlugin *plugin, GsApp *app)
 	}
 
 	gs_app_set_update_details (app, details->str);
-}
-
-static gboolean
-is_official (PackageInfo *info)
-{
-	return g_strcmp0 (info->origin, "Ubuntu") == 0;
 }
 
 static gboolean
@@ -894,7 +887,7 @@ debconf_client_read_cb (gint fd, GIOCondition condition, gpointer user_data)
 {
 	DebconfData *data = (DebconfData *) user_data;
 	gchar buffer[1024];
-	gsize n_read;
+	gssize n_read;
 	g_autoptr(GError) error = NULL;
 
 	n_read = read (fd, buffer, 1024);
