@@ -28,6 +28,7 @@
 #include <appstream-glib.h>
 
 #include "gs-price.h"
+#include "gs-permission.h"
 
 G_BEGIN_DECLS
 
@@ -196,6 +197,9 @@ void		 gs_app_set_origin		(GsApp		*app,
 const gchar	*gs_app_get_origin_hostname	(GsApp		*app);
 void		 gs_app_set_origin_hostname	(GsApp		*app,
 						 const gchar	*origin_hostname);
+GPtrArray	*gs_app_get_permissions		(GsApp		*app);
+void		 gs_app_add_permission		(GsApp		*app,
+						 GsPermission	*permission);
 GPtrArray	*gs_app_get_screenshots		(GsApp		*app);
 void		 gs_app_add_screenshot		(GsApp		*app,
 						 AsScreenshot	*screenshot);

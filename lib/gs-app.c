@@ -87,6 +87,7 @@ typedef struct
 	gchar			**menu_path;
 	gchar			*origin;
 	gchar			*origin_hostname;
+	GPtrArray		*permissions;
 	gchar			*update_version;
 	gchar			*update_version_ui;
 	gchar			*update_details;
@@ -440,6 +441,16 @@ gs_app_to_string_append (GsApp *app, GString *str)
 		if (as_icon_get_filename (icon) != NULL)
 			gs_app_kv_lpad (str, "icon-filename",
 					as_icon_get_filename (icon));
+	}
+	for (i = 0; i < priv->permissions->len; i++) {
+		GsPermission *permission;
+		g_autofree gchar *key = NULL;
+
+		permission = g_ptr_array_index (priv->permissions, i);
+		key = g_strdup_printf ("permission-%02u", i);
+		gs_app_kv_printf (str, key, "[%s] %s",
+				  gs_permission_get_label (permission),
+				  gs_permission_get_enabled (permission) ? "true" : "false");
 	}
 	if (priv->match_value != 0)
 		gs_app_kv_printf (str, "match-value", "%05x", priv->match_value);
@@ -2365,6 +2376,46 @@ gs_app_set_origin_hostname (GsApp *app, const gchar *origin_hostname)
 }
 
 /**
+ * gs_app_add_permission:
+ * @app: a #GsApp
+ * @permission: a #GsPermission
+ *
+ * Adds a permission to the applicaton.
+ *
+ * Since: 3.26
+ **/
+void
+gs_app_add_permission (GsApp *app, GsPermission *permission)
+{
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+
+	g_return_if_fail (GS_IS_APP (app));
+	g_return_if_fail (GS_IS_PERMISSION (permission));
+
+	g_ptr_array_add (priv->permissions, g_object_ref (permission));
+}
+
+/**
+ * gs_app_get_permissions:
+ * @app: a #GsApp
+ *
+ * Gets the list of permissions.
+ *
+ * Returns: (element-type GsPermission) (transfer none): a list
+ *
+ * Since: 3.26
+ **/
+GPtrArray *
+gs_app_get_permissions (GsApp *app)
+{
+	GsAppPrivate *priv = gs_app_get_instance_private (app);
+
+	g_return_val_if_fail (GS_IS_APP (app), NULL);
+
+	return priv->permissions;
+}
+
+/**
  * gs_app_add_screenshot:
  * @app: a #GsApp
  * @screenshot: a #AsScreenshot
@@ -3807,6 +3858,7 @@ gs_app_dispose (GObject *object)
 	g_clear_pointer (&priv->reviews, g_ptr_array_unref);
 	g_clear_pointer (&priv->provides, g_ptr_array_unref);
 	g_clear_pointer (&priv->icons, g_ptr_array_unref);
+	g_clear_pointer (&priv->permissions, g_ptr_array_unref);
 
 	G_OBJECT_CLASS (gs_app_parent_class)->dispose (object);
 }
@@ -3977,6 +4029,7 @@ gs_app_init (GsApp *app)
 	priv->reviews = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	priv->provides = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	priv->icons = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
+	priv->permissions = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	priv->metadata = g_hash_table_new_full (g_str_hash,
 	                                        g_str_equal,
 	                                        g_free,

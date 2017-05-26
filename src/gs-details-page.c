@@ -76,6 +76,7 @@ struct _GsDetailsPage
 	GtkWidget		*box_details_screenshot_main;
 	GtkWidget		*box_details_screenshot_thumbnails;
 	GtkWidget		*box_details_license_list;
+	GtkWidget		*box_permissions;
 	GtkWidget		*button_details_launch;
 	GtkWidget		*button_details_add_shortcut;
 	GtkWidget		*button_details_remove_shortcut;
@@ -121,6 +122,7 @@ struct _GsDetailsPage
 	GtkWidget		*spinner_remove;
 	GtkWidget		*stack_details;
 	GtkWidget		*grid_details_kudo;
+	GtkWidget		*grid_permissions;
 	GtkWidget		*image_details_kudo_docs;
 	GtkWidget		*image_details_kudo_sandboxed;
 	GtkWidget		*image_details_kudo_integration;
@@ -518,6 +520,40 @@ gs_details_page_notify_state_changed_cb (GsApp *app,
                                          GsDetailsPage *self)
 {
 	g_idle_add (gs_details_page_switch_to_idle, g_object_ref (self));
+}
+
+static void
+gs_details_page_refresh_permissions (GsDetailsPage *self)
+{
+	GPtrArray *permissions;
+	guint i;
+
+	/* nothing to show */
+	if (self->app == NULL)
+		return;
+
+	/* show or hide the entire permissions section */
+	permissions = gs_app_get_permissions (self->app);
+	gtk_widget_set_visible (self->box_permissions, permissions->len > 0);
+
+	gtk_container_foreach (GTK_CONTAINER (self->grid_permissions),
+			       (GtkCallback) gtk_widget_destroy, NULL);
+	for (i = 0; i < permissions->len; i++) {
+		GsPermission *permission = g_ptr_array_index (permissions, i);
+		GtkWidget *sw, *label;
+
+		sw = gtk_switch_new ();
+		gtk_widget_set_visible (sw, TRUE);
+		gtk_switch_set_active (GTK_SWITCH (sw), gs_permission_get_enabled (permission));
+		gtk_grid_attach (GTK_GRID (self->grid_permissions), sw, 0, i, 1, 1);
+
+		label = gtk_label_new (gs_permission_get_label (permission));
+		g_object_set (label,
+			      "xalign", 0.0,
+			      NULL);
+		gtk_widget_set_visible (label, TRUE);
+		gtk_grid_attach (GTK_GRID (self->grid_permissions), label, 1, i, 1, 1);
+	}
 }
 
 static void
@@ -1459,6 +1495,7 @@ gs_details_page_app_refine_cb (GObject *source,
 	app_dump = gs_app_to_string (self->app);
 	g_debug ("%s", app_dump);
 
+	gs_details_page_refresh_permissions (self);
 	gs_details_page_refresh_screenshots (self);
 	gs_details_page_refresh_addons (self);
 	gs_details_page_refresh_reviews (self);
@@ -1508,6 +1545,7 @@ set_app (GsDetailsPage *self, GsApp *app)
 
 	/* change widgets */
 	gs_page_switch_to (GS_PAGE (self), TRUE);
+	gs_details_page_refresh_permissions (self);
 	gs_details_page_refresh_screenshots (self);
 	gs_details_page_refresh_addons (self);
 	gs_details_page_refresh_reviews (self);
@@ -2250,6 +2288,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_screenshot_main);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_screenshot_thumbnails);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_license_list);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_permissions);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_launch);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_add_shortcut);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_remove_shortcut);
@@ -2293,6 +2332,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, spinner_remove);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, stack_details);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, grid_details_kudo);
+	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, grid_permissions);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, image_details_kudo_docs);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, image_details_kudo_sandboxed);
 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, image_details_kudo_integration);
