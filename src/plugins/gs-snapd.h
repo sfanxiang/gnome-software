@@ -36,11 +36,9 @@ JsonObject *gs_snapd_list_one		(const gchar	*name,
 JsonArray *gs_snapd_list		(GCancellable	*cancellable,
 					 GError		**error);
 
-JsonArray *gs_snapd_find		(gchar		**values,
-					 GCancellable	*cancellable,
-					 GError		**error);
-
-JsonArray *gs_snapd_find_name		(const gchar	*name,
+JsonArray *gs_snapd_find		(const gchar	*section,
+					 gboolean	 match_name,
+					 const gchar	*query,
 					 GCancellable	*cancellable,
 					 GError		**error);
 
@@ -63,5 +61,7 @@ gchar *gs_snapd_get_resource		(const gchar	*path,
 					 gsize		*data_length,
 					 GCancellable	*cancellable,
 					 GError		**error);
+
+GDateTime *gs_snapd_parse_date		(const gchar	*value);
 
 #endif /* __GS_SNAPD_H__ */
