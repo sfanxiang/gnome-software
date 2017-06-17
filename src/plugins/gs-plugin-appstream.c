@@ -26,7 +26,6 @@
 #include <gs-utils.h>
 #include <gs-plugin.h>
 #include <gs-plugin-loader.h>
-#include <gs-application.h>
 
 #include "gs-appstream.h"
 
