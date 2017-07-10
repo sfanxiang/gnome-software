@@ -39,12 +39,14 @@ G_DECLARE_FINAL_TYPE (GsFlatpak, gs_flatpak, GS, FLATPAK, GObject)
 #define	gs_app_get_flatpak_commit(app)		gs_app_get_metadata_item(app,"flatpak::commit")
 #define	gs_app_get_flatpak_file_type(app)	gs_app_get_metadata_item(app,"flatpak::file-type")
 #define	gs_app_get_flatpak_object_id(app)	gs_app_get_metadata_item(app,"flatpak::object-id")
+#define	gs_app_get_flatpak_subpaths(app)	gs_app_get_metadata_item(app,"flatpak::subpaths")
 #define	gs_app_set_flatpak_name(app,val)	gs_app_set_metadata(app,"flatpak::name",val)
 #define	gs_app_set_flatpak_arch(app,val)	gs_app_set_metadata(app,"flatpak::arch",val)
 #define	gs_app_set_flatpak_branch(app,val)	gs_app_set_metadata(app,"flatpak::branch",val)
 #define	gs_app_set_flatpak_commit(app,val)	gs_app_set_metadata(app,"flatpak::commit",val)
 #define	gs_app_set_flatpak_file_type(app,val)	gs_app_set_metadata(app,"flatpak::file-type",val)
 #define	gs_app_set_flatpak_object_id(app,val)	gs_app_set_metadata(app,"flatpak::object-id",val)
+#define	gs_app_set_flatpak_subpaths(app,val)	gs_app_set_metadata(app,"flatpak::subpaths",val)
 
 typedef enum {
 	GS_FLATPAK_FLAG_NONE			= 0,

@@ -142,6 +142,12 @@ gs_flatpak_set_metadata (GsFlatpak *self, GsApp *app, FlatpakRef *xref)
 	gs_app_set_flatpak_branch (app, flatpak_ref_get_branch (xref));
 	gs_app_set_flatpak_commit (app, flatpak_ref_get_commit (xref));
 	gs_app_set_flatpak_object_id (app, gs_flatpak_get_id (self));
+	if (FLATPAK_IS_RELATED_REF (xref)) {
+		g_autofree gchar *subpaths_str = NULL;
+		const char * const *subpaths = flatpak_related_ref_get_subpaths (FLATPAK_RELATED_REF (xref));
+		subpaths_str = g_strjoinv (":", (gchar **) subpaths);
+		gs_app_set_flatpak_subpaths (app, subpaths_str);
+	}
 
 	/* map the flatpak kind to the gnome-software kind */
 	if (flatpak_ref_get_kind (xref) == FLATPAK_REF_KIND_APP) {
@@ -2449,20 +2455,28 @@ install_runtime_for_app (GsFlatpak *self,
 	if (gs_app_get_state (runtime) == AS_APP_STATE_AVAILABLE) {
 		g_autoptr(FlatpakInstalledRef) xref = NULL;
 		g_autoptr(GsFlatpakProgressHelper) phelper = NULL;
+		const gchar *subpaths_str;
+		g_auto(GStrv) subpaths = NULL;
+
+		subpaths_str = gs_app_get_flatpak_subpaths (runtime);
+		if (subpaths != NULL)
+			subpaths = g_strsplit (subpaths_str, ":", -1);
 
 		g_debug ("%s/%s is not already installed, so installing",
 			 gs_app_get_id (runtime),
 			 gs_app_get_flatpak_branch (runtime));
 		gs_app_set_state (runtime, AS_APP_STATE_INSTALLING);
 		phelper = gs_flatpak_progress_helper_new (self->plugin, app);
-		xref = flatpak_installation_install (self->installation,
-						     gs_app_get_origin (runtime),
-						     gs_app_get_flatpak_kind (runtime),
-						     gs_app_get_flatpak_name (runtime),
-						     gs_app_get_flatpak_arch (runtime),
-						     gs_app_get_flatpak_branch (runtime),
-						     gs_flatpak_progress_cb, phelper,
-						     cancellable, error);
+		xref = flatpak_installation_install_full (self->installation,
+							  FLATPAK_INSTALL_FLAGS_NONE,
+							  gs_app_get_origin (runtime),
+							  gs_app_get_flatpak_kind (runtime),
+							  gs_app_get_flatpak_name (runtime),
+							  gs_app_get_flatpak_arch (runtime),
+							  gs_app_get_flatpak_branch (runtime),
+							  (const char * const *) subpaths,
+							  gs_flatpak_progress_cb, phelper,
+							  cancellable, error);
 		if (xref == NULL) {
 			gs_plugin_flatpak_error_convert (error);
 			gs_app_set_state_recover (runtime);
