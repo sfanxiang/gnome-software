@@ -250,6 +250,10 @@ gs_plugin_add_popular (GsPlugin *plugin,
 			return FALSE;
 	}
 
+	/* we've already got enough popular apps */
+	if (g_list_length (*list) >= 5)
+		return TRUE;
+
 	/* get popular apps based on various things */
 	apps = gs_plugin_moduleset_get_popular (plugin);
 	if (apps == NULL) {
