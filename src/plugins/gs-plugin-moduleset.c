@@ -59,6 +59,7 @@ gs_plugin_order_after (GsPlugin *plugin)
 	static const gchar *deps[] = {
 		"menu-spec-categories",	/* featured subcat added to existing categories */
 		"appstream",		/* need app id */
+		"snap",			/* use snap popular items first */
 		NULL };
 	return deps;
 }
