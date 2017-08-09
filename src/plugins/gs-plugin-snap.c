@@ -38,6 +38,16 @@ gs_plugin_get_name (void)
 	return "snap";
 }
 
+const gchar **
+gs_plugin_order_after (GsPlugin *plugin)
+{
+	static const gchar *deps[] = {
+		"appstream",
+		"hardcoded-featured",
+		NULL };
+	return deps;
+}
+
 void
 gs_plugin_initialize (GsPlugin *plugin)
 {
@@ -175,6 +185,12 @@ gs_plugin_destroy (GsPlugin *plugin)
 	g_hash_table_unref (plugin->priv->store_snaps);
 }
 
+static gboolean
+remove_cb (GsApp *app, gpointer user_data)
+{
+	return FALSE;
+}
+
 gboolean
 gs_plugin_add_featured (GsPlugin *plugin,
 		        GList **list,
@@ -242,6 +258,7 @@ gs_plugin_add_featured (GsPlugin *plugin,
 	gs_app_set_metadata (app, "Featured::background", background_css->str);
 	gs_app_set_metadata (app, "Featured::text-color", "#000000");
 
+	gs_plugin_list_filter (list, remove_cb, NULL);
 	gs_plugin_add_app (list, app);
 
 	return TRUE;
