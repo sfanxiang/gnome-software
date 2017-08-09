@@ -176,6 +176,78 @@ gs_plugin_destroy (GsPlugin *plugin)
 }
 
 gboolean
+gs_plugin_add_featured (GsPlugin *plugin,
+		        GList **list,
+		        GCancellable *cancellable,
+		        GError **error)
+{
+	g_autoptr(JsonArray) snaps = NULL;
+	JsonObject *snap;
+	g_autoptr(GsApp) app = NULL;
+	const gchar *banner_url = NULL, *icon_url = NULL;
+	g_autoptr(GString) background_css = NULL;
+	g_autofree gchar *css = NULL;
+
+	snaps = find_snaps (plugin, "featured", FALSE, NULL, cancellable, error);
+
+	if (snaps == NULL)
+		return FALSE;
+
+	if (json_array_get_length (snaps) == 0)
+		return TRUE;
+
+	/* use first snap as the featured app */
+	snap = json_array_get_object_element (snaps, 0);
+	app = snap_to_app (plugin, snap);
+
+	/* if has a sceenshot called 'banner.png' or 'banner-icon.png' then use them for the banner */
+	if (json_object_has_member (snap, "screenshots")) {
+		JsonArray *screenshots;
+		guint i;
+
+		screenshots = json_object_get_array_member (snap, "screenshots");
+		for (i = 0; i < json_array_get_length (screenshots); i++) {
+			JsonObject *screenshot = json_array_get_object_element (screenshots, i);
+			const gchar *url;
+			g_autofree gchar *filename = NULL;
+
+			url = json_object_get_string_member (screenshot, "url");
+			filename = g_path_get_basename (url);
+			if (g_strcmp0 (filename, "banner.png") == 0 ||
+			    g_strcmp0 (filename, "banner.jpg") == 0) {
+				banner_url = url;
+			}
+			if (g_strcmp0 (filename, "banner-icon.png") == 0 ||
+			    g_strcmp0 (filename, "banner-icon.jpg") == 0) {
+				icon_url = url;
+			}
+		}
+	}
+
+	background_css = g_string_new ("");
+	if (icon_url != NULL)
+		g_string_append_printf (background_css,
+					"url('%s') left center / auto 100%% no-repeat, ",
+					icon_url);
+	else
+		g_string_append_printf (background_css,
+					"url('%s') left center / auto 100%% no-repeat, ",
+					json_object_get_string_member (snap, "icon"));
+	if (banner_url != NULL)
+		g_string_append_printf (background_css,
+					"url('%s') center / cover no-repeat",
+					banner_url);
+	else
+		g_string_append_printf (background_css, "#FFFFFF;");
+	gs_app_set_metadata (app, "Featured::background", background_css->str);
+	gs_app_set_metadata (app, "Featured::text-color", "#000000");
+
+	gs_plugin_add_app (list, app);
+
+	return TRUE;
+}
+
+gboolean
 gs_plugin_add_popular (GsPlugin *plugin,
 		       GList **list,
 		       GCancellable *cancellable,
@@ -188,7 +260,8 @@ gs_plugin_add_popular (GsPlugin *plugin,
 	if (snaps == NULL)
 		return FALSE;
 
-	for (i = 0; i < json_array_get_length (snaps); i++) {
+	/* skip first snap - it is used as the featured app */
+	for (i = 1; i < json_array_get_length (snaps); i++) {
 		JsonObject *snap = json_array_get_object_element (snaps, i);
 		gs_plugin_add_app (list, snap_to_app (plugin, snap));
 	}
@@ -427,13 +500,24 @@ gs_plugin_refine_app (GsPlugin *plugin,
 			screenshots = json_object_get_array_member (store_snap, "screenshots");
 			for (i = 0; i < json_array_get_length (screenshots); i++) {
 				JsonObject *screenshot = json_array_get_object_element (screenshots, i);
+				const gchar *url;
+				g_autofree gchar *filename = NULL;
 				g_autoptr(AsScreenshot) ss = NULL;
 				g_autoptr(AsImage) image = NULL;
+
+				/* skip sceenshots used for banner when app is featured */
+				url = json_object_get_string_member (screenshot, "url");
+				filename = g_path_get_basename (url);
+				if (g_strcmp0 (filename, "banner.png") == 0 ||
+				    g_strcmp0 (filename, "banner.jpg") == 0 ||
+				    g_strcmp0 (filename, "banner-icon.png") == 0 ||
+				    g_strcmp0 (filename, "banner-icon.jpg") == 0)
+					continue;
 
 				ss = as_screenshot_new ();
 				as_screenshot_set_kind (ss, AS_SCREENSHOT_KIND_NORMAL);
 				image = as_image_new ();
-				as_image_set_url (image, json_object_get_string_member (screenshot, "url"));
+				as_image_set_url (image, url);
 				as_image_set_kind (image, AS_IMAGE_KIND_SOURCE);
 				if (json_object_has_member (screenshot, "width"))
 					as_image_set_width (image, json_object_get_int_member (screenshot, "width"));
