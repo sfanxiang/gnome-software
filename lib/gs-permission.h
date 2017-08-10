@@ -31,13 +31,8 @@ G_BEGIN_DECLS
 
 G_DECLARE_FINAL_TYPE (GsPermission, gs_permission, GS, PERMISSION, GObject)
 
-GsPermission	*gs_permission_new_bluetooth		(gboolean	 enabled);
-GsPermission	*gs_permission_new_camera		(gboolean	 enabled);
-GsPermission	*gs_permission_new_network		(gboolean	 enabled);
-GsPermission	*gs_permission_new_media		(gboolean	 enabled);
-GsPermission	*gs_permission_new_optical_drive	(gboolean	 enabled);
-GsPermission	*gs_permission_new_printing		(gboolean	 enabled);
-GsPermission	*gs_permission_new_shutdown		(gboolean	 enabled);
+GsPermission	*gs_permission_new			(const gchar	*label,
+							 gboolean	 enabled);
 
 const gchar	*gs_permission_get_metadata_item	(GsPermission	*permission,
 							 const gchar	*key);

@@ -596,7 +596,7 @@ gs_plugin_refine_app (GsPlugin *plugin,
 		g_autoptr(GPtrArray) slots = NULL;
 		guint i;
 
-		if (!snapd_client_get_interfaces_sync (client, &plugs, &slots, cancellable, error))
+		if (!snapd_client_get_interfaces_sync (priv->client, &plugs, &slots, cancellable, error))
 			return FALSE;
 		for (i = 0; i < plugs->len; i++) {
 			SnapdPlug *plug = plugs->pdata[i];
@@ -611,32 +611,7 @@ gs_plugin_refine_app (GsPlugin *plugin,
 			/* map interfaces to known permissions */
 			name = snapd_plug_get_name (plug);
 			is_connected = snapd_plug_get_connections (plug)->len > 0;
-			if (g_strcmp0 (name, "camera") == 0)
-				permission = gs_permission_new_camera (is_connected);
-			else if (g_strcmp0 (name, "removable-media") == 0)
-				permission = gs_permission_new_media (is_connected);
-			else if (g_strcmp0 (name, "optical-drive") == 0)
-				permission = gs_permission_new_optical_drive (is_connected);
-			else if (g_strcmp0 (name, "network") == 0)
-				permission = gs_permission_new_network (is_connected);
-			else if (g_strcmp0 (name, "cups-control") == 0)
-				permission = gs_permission_new_printing (is_connected);
-			else if (g_strcmp0 (name, "bluetooth-control") == 0)
-				permission = gs_permission_new_bluetooth (is_connected);
-			else if (g_strcmp0 (name, "shutdown") == 0)
-				permission = gs_permission_new_shutdown (is_connected);
-			else if (g_strcmp0 (name, "home") == 0 ||
-				 g_strcmp0 (name, "opengl") == 0 ||
-				 g_strcmp0 (name, "pulseaudio") == 0 ||
-				 g_strcmp0 (name, "unity7") == 0 ||
-				 g_strcmp0 (name, "x11") == 0) {
-				g_debug ("Ignoring common plug %s:%s", snapd_plug_get_snap (plug), name);
-				continue;
-			} else {
-				g_warning ("Ignoring unknown plug %s:%s", snapd_plug_get_snap (plug), name);
-				continue;
-			}
-
+			permission = gs_permission_new (name, is_connected);
 			gs_app_add_permission (app, permission);
 		}
 	}

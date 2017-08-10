@@ -141,7 +141,7 @@ gs_permission_init (GsPermission *permission)
 						      g_free, g_free);
 }
 
-static GsPermission *
+GsPermission *
 gs_permission_new (const gchar *label, gboolean enabled)
 {
 	GsPermission *permission;
@@ -149,104 +149,6 @@ gs_permission_new (const gchar *label, gboolean enabled)
 	permission->label = g_strdup (label);
 	permission->enabled = enabled;
 	return GS_PERMISSION (permission);
-}
-
-/**
- * gs_permission_new_camera:
- * @enabled: %TRUE if camera access is enabled.
- *
- * Creates a new permission object for camera access.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_camera (gboolean enabled)
-{
-	return gs_permission_new (_("Can acquire photos / video from cameras"), enabled);
-}
-
-/**
- * gs_permission_new_bluetooth:
- * @enabled: %TRUE if Bluetooth access is enabled.
- *
- * Creates a new permission object for Bluetooth access.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_bluetooth (gboolean enabled)
-{
-	return gs_permission_new (_("Can access Bluetooth devices"), enabled);
-}
-
-/**
- * gs_permission_new_network:
- * @enabled: %TRUE if network access is enabled.
- *
- * Creates a new permission object for network access.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_network (gboolean enabled)
-{
-	return gs_permission_new (_("Can access the network"), enabled);
-}
-
-/**
- * gs_permission_new_media:
- * @enabled: %TRUE if removable media is enabled.
- *
- * Creates a new permission object for removable media.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_media (gboolean enabled)
-{
-	return gs_permission_new (_("Can access removable media (USB drives etc)"), enabled);
-}
-
-/**
- * gs_permission_new_optical_drive:
- * @enabled: %TRUE if optical drive access is enabled.
- *
- * Creates a new permission object for optical drive access.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_optical_drive (gboolean enabled)
-{
-	return gs_permission_new (_("Can access optical drives (CD, DVD etc)"), enabled);
-}
-
-/**
- * gs_permission_new_printing:
- * @enabled: %TRUE if printing access is enabled.
- *
- * Creates a new permission object for printing access.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_printing (gboolean enabled)
-{
-	return gs_permission_new (_("Can print documents"), enabled);
-}
-
-/**
- * gs_permission_new_shutdown:
- * @enabled: %TRUE if shutdown / restart is allowed.
- *
- * Creates a new permission object for shutdown / restart of this machine.
- *
- * Return value: a new #GsPermission object.
- **/
-GsPermission *
-gs_permission_new_shutdown (gboolean enabled)
-{
-	return gs_permission_new (_("Can shutdown / restart this computer"), enabled);
 }
 
 /* vim: set noexpandtab: */
